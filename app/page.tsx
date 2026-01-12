@@ -20,6 +20,7 @@ export default function HomePage() {
   const router = useRouter();
   const [issue, setIssue] = useState("");
   const [manualLocation, setManualLocation] = useState("");
+  const [loading, setLoading] = useState(false);
 
   function continueWithGPS() {
     navigator.geolocation.getCurrentPosition(
@@ -34,10 +35,39 @@ export default function HomePage() {
       },
       () =>
         alert(
-          "Location blocked. Please allow location (we will add manual location search next)."
+          "Location blocked. Please allow location or type your area/pincode."
         ),
       { enableHighAccuracy: true, timeout: 10000 }
     );
+  }
+
+  async function continueWithManualLocation() {
+    const q = manualLocation.trim();
+    if (!q) {
+      alert("Please type your area/pincode, or use GPS.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+      const data = await r.json();
+
+      if (!r.ok) {
+        alert(data?.error || "Location search failed");
+        setLoading(false);
+        return;
+      }
+
+      router.push(
+        `/results?lat=${data.lat}&lng=${data.lng}&issue=${encodeURIComponent(
+          issue || "mobile repair"
+        )}`
+      );
+    } catch {
+      alert("Network error while searching location");
+    }
+    setLoading(false);
   }
 
   return (
@@ -93,27 +123,31 @@ export default function HomePage() {
               <div className="mt-4 text-sm font-semibold">Where do you need it?</div>
               <input
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 outline-none focus:border-slate-500"
-                placeholder="Enter your area / pincode (optional for now)"
+                placeholder="Enter your area / pincode (or leave blank for GPS)"
                 value={manualLocation}
                 onChange={(e) => setManualLocation(e.target.value)}
               />
 
               <button
-                onClick={continueWithGPS}
-                className="mt-5 w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-white hover:bg-emerald-600"
+                disabled={loading}
+                onClick={() => {
+                  if (manualLocation.trim()) continueWithManualLocation();
+                  else continueWithGPS();
+                }}
+                className="mt-5 w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-white hover:bg-emerald-600 disabled:opacity-60"
               >
-                Continue
+                {loading ? "Searching…" : "Continue"}
               </button>
 
               <p className="mt-3 text-xs text-slate-500">
-                By continuing, you agree to the site terms.
+                Tip: Type your area/pincode to avoid GPS permission.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Scroll section: Intro + CTA */}
+      {/* Intro + CTA */}
       <section className="mx-auto max-w-6xl px-4 py-14">
         <h2 className="text-4xl font-extrabold text-slate-900">
           Need help fixing your phone?
@@ -124,10 +158,6 @@ export default function HomePage() {
           contact details, then choose the shop that works best for you.
         </p>
 
-        <p className="mt-4 max-w-3xl text-slate-700">
-          If you’re not sure where to start, pick a service below and continue.
-        </p>
-
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           className="mt-6 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
@@ -136,9 +166,9 @@ export default function HomePage() {
         </button>
       </section>
 
-      {/* Scroll section: Popular services chips */}
+      {/* Popular services */}
       <section className="mx-auto max-w-6xl px-4 pb-16">
-        <h3 className="text-2xl font-bold text-slate-900">Popular Repairs</h3>
+        <h3 className="text-2xl font-bold text-slate-900">Popular services</h3>
 
         <div className="mt-6 flex flex-wrap gap-3">
           {popularServices.map((s) => (
@@ -156,7 +186,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer (simple like Bark-style multi-column) */}
+      {/* Footer */}
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-4 py-12 sm:grid-cols-3">
           <div>
