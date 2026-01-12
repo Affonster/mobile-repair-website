@@ -138,7 +138,7 @@ export default function HomePage() {
 
       {/* Scroll section: Popular services chips */}
       <section className="mx-auto max-w-6xl px-4 pb-16">
-        <h3 className="text-2xl font-bold text-slate-900">Popular services</h3>
+        <h3 className="text-2xl font-bold text-slate-900">Popular Repairs</h3>
 
         <div className="mt-6 flex flex-wrap gap-3">
           {popularServices.map((s) => (
