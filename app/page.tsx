@@ -1,73 +1,118 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-const popularServices = [
-  "Phone screen repair",
-  "Battery replacement",
-  "Charging port issue",
+type Category = "Mobile" | "Tablet";
+type Platform = "Android" | "iOS" | "Other";
+type Brand =
+  | "Apple"
+  | "Samsung"
+  | "OnePlus"
+  | "Xiaomi"
+  | "Oppo"
+  | "Vivo"
+  | "Realme"
+  | "Other";
+
+const issues = [
+  "Screen broken",
+  "Battery issue",
+  "Charging problem",
   "Water damage",
-  "Speaker / mic issue",
+  "Speaker/Mic issue",
   "Camera issue",
-  "Software / OS issue",
-  "Phone unlocking",
-  "Tablet repair",
-  "Laptop repair",
+  "Software issue",
+  "Other",
 ];
 
 export default function HomePage() {
   const router = useRouter();
-  const [issue, setIssue] = useState("");
-  const [manualLocation, setManualLocation] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  function continueWithGPS() {
+  // Modal open/close
+  const [open, setOpen] = useState(false);
+
+  // Steps: 0 category, 1 brand, 2 platform, 3 issue, 4 finding matches
+  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4>(0);
+
+  // Answers
+  const [category, setCategory] = useState<Category | null>(null);
+  const [brand, setBrand] = useState<Brand | null>(null);
+  const [brandOther, setBrandOther] = useState("");
+  const [platform, setPlatform] = useState<Platform | null>(null);
+  const [issue, setIssue] = useState<string>("");
+
+  const brandFinal = useMemo(() => {
+    if (brand !== "Other") return brand || "";
+    return brandOther.trim() || "Other";
+  }, [brand, brandOther]);
+
+  function resetWizard() {
+    setStep(0);
+    setCategory(null);
+    setBrand(null);
+    setBrandOther("");
+    setPlatform(null);
+    setIssue("");
+  }
+
+  function closeWizard() {
+    setOpen(false);
+  }
+
+  function openWizard() {
+    resetWizard();
+    setOpen(true);
+  }
+
+  function back() {
+    if (step === 0) return;
+    setStep((step - 1) as any);
+  }
+
+  function canContinue() {
+    if (step === 0) return !!category;
+    if (step === 1) return !!brand && (brand !== "Other" || brandOther.trim().length >= 2);
+    if (step === 2) return !!platform;
+    if (step === 3) return !!issue;
+    return false;
+  }
+
+  function next() {
+    if (!canContinue()) return;
+    setStep((step + 1) as any);
+  }
+
+  // Final submit: use GPS and go to results
+  function findMatches() {
+    setStep(4);
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-        router.push(
-          `/results?lat=${lat}&lng=${lng}&issue=${encodeURIComponent(
-            issue || "mobile repair"
-          )}`
-        );
+
+        // Build a useful issue string for searching
+        const query = [
+          category,
+          brandFinal,
+          platform,
+          issue,
+        ]
+          .filter(Boolean)
+          .join(" - ");
+
+        // Small “found matches” delay (looks professional)
+        setTimeout(() => {
+          router.push(`/results?lat=${lat}&lng=${lng}&issue=${encodeURIComponent(query)}`);
+        }, 900);
       },
-      () =>
-        alert(
-          "Location blocked. Please allow location or type your area/pincode."
-        ),
+      () => {
+        alert("Please allow location permission (GPS) to find shops near you.");
+        setStep(3); // go back to last step so user can try again
+      },
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  }
-
-  async function continueWithManualLocation() {
-    const q = manualLocation.trim();
-    if (!q) {
-      alert("Please type your area/pincode, or use GPS.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
-      const data = await r.json();
-
-      if (!r.ok) {
-        alert(data?.error || "Location search failed");
-        setLoading(false);
-        return;
-      }
-
-      router.push(
-        `/results?lat=${data.lat}&lng=${data.lng}&issue=${encodeURIComponent(
-          issue || "mobile repair"
-        )}`
-      );
-    } catch {
-      alert("Network error while searching location");
-    }
-    setLoading(false);
   }
 
   return (
@@ -112,71 +157,37 @@ export default function HomePage() {
             </h1>
 
             <div className="mt-8 w-full max-w-lg rounded-2xl bg-white p-6 text-slate-900 shadow-xl">
-              <div className="text-sm font-semibold">What problem do you have?</div>
-              <input
-                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 outline-none focus:border-slate-500"
-                placeholder="Example: screen broken, battery issue"
-                value={issue}
-                onChange={(e) => setIssue(e.target.value)}
-              />
-
-              <div className="mt-4 text-sm font-semibold">Where do you need it?</div>
-              <input
-                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 outline-none focus:border-slate-500"
-                placeholder="Enter your area / pincode (or leave blank for GPS)"
-                value={manualLocation}
-                onChange={(e) => setManualLocation(e.target.value)}
-              />
+              <div className="text-sm font-semibold">Answer a few quick questions</div>
+              <p className="mt-2 text-sm text-slate-600">
+                This helps find the best matches near your location.
+              </p>
 
               <button
-                disabled={loading}
-                onClick={() => {
-                  if (manualLocation.trim()) continueWithManualLocation();
-                  else continueWithGPS();
-                }}
-                className="mt-5 w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-white hover:bg-emerald-600 disabled:opacity-60"
+                onClick={openWizard}
+                className="mt-5 w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-white hover:bg-emerald-600"
               >
-                {loading ? "Searching…" : "Continue"}
+                Continue
               </button>
 
               <p className="mt-3 text-xs text-slate-500">
-                Tip: Type your area/pincode to avoid GPS permission.
+                Location is used only to show nearby shops.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Intro + CTA */}
+      {/* Some content below (keep your existing sections if you want) */}
       <section className="mx-auto max-w-6xl px-4 py-14">
-        <h2 className="text-4xl font-extrabold text-slate-900">
-          Need help fixing your phone?
-        </h2>
-
-        <p className="mt-4 max-w-3xl text-slate-700">
-          Describe the problem and see nearby repair options. Compare distance and
-          contact details, then choose the shop that works best for you.
-        </p>
-
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="mt-6 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
-        >
-          Find a repair shop today
-        </button>
-      </section>
-
-      {/* Popular services */}
-      <section className="mx-auto max-w-6xl px-4 pb-16">
-        <h3 className="text-2xl font-bold text-slate-900">Popular services</h3>
-
+        <h2 className="text-4xl font-extrabold text-slate-900">Popular issues</h2>
         <div className="mt-6 flex flex-wrap gap-3">
-          {popularServices.map((s) => (
+          {issues.map((s) => (
             <button
               key={s}
               onClick={() => {
+                openWizard();
                 setIssue(s);
-                window.scrollTo({ top: 0, behavior: "smooth" });
+                setStep(0);
               }}
               className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-blue-700 hover:bg-slate-50"
             >
@@ -186,38 +197,209 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-4 py-12 sm:grid-cols-3">
-          <div>
-            <div className="font-semibold text-slate-900">For Customers</div>
-            <ul className="mt-3 space-y-2 text-slate-600">
-              <li>Find a shop</li>
-              <li>How it works</li>
-              <li>Support</li>
-            </ul>
-          </div>
+      {/* Modal wizard */}
+      {open && (
+        <div className="fixed inset-0 z-[60]">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={closeWizard}
+          />
 
-          <div>
-            <div className="font-semibold text-slate-900">For Shops</div>
-            <ul className="mt-3 space-y-2 text-slate-600">
-              <li>Join as a shop</li>
-              <li>How leads work</li>
-              <li>Pricing (later)</li>
-            </ul>
-          </div>
+          {/* Modal */}
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm text-slate-500">
+                    Step {step + 1} of 5
+                  </div>
+                  <div className="mt-1 text-xl font-bold text-slate-900">
+                    {step === 0 && "Is it a mobile or a tablet?"}
+                    {step === 1 && "Which brand is it?"}
+                    {step === 2 && "Which platform?"}
+                    {step === 3 && "What issue are you facing?"}
+                    {step === 4 && "We found your matches"}
+                  </div>
+                </div>
 
-          <div>
-            <div className="font-semibold text-slate-900">Need help?</div>
-            <button className="mt-3 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white">
-              Contact us
-            </button>
-            <p className="mt-4 text-sm text-slate-500">
-              © {new Date().getFullYear()} RepairFinder. All rights reserved.
-            </p>
+                <button
+                  onClick={closeWizard}
+                  className="rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="mt-5">
+                {step === 0 && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["Mobile", "Tablet"] as Category[]).map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setCategory(c)}
+                        className={[
+                          "rounded-xl border px-4 py-3 text-left",
+                          category === c
+                            ? "border-blue-600 bg-blue-50 text-slate-900"
+                            : "border-slate-200 bg-white text-slate-900",
+                        ].join(" ")}
+                      >
+                        <div className="font-semibold">{c}</div>
+                        <div className="mt-1 text-sm text-slate-600">
+                          {c === "Mobile" ? "Phones" : "Tablets"}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {step === 1 && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {(
+                      [
+                        "Apple",
+                        "Samsung",
+                        "OnePlus",
+                        "Xiaomi",
+                        "Oppo",
+                        "Vivo",
+                        "Realme",
+                        "Other",
+                      ] as Brand[]
+                    ).map((b) => (
+                      <button
+                        key={b}
+                        onClick={() => setBrand(b)}
+                        className={[
+                          "rounded-xl border px-4 py-3 text-left",
+                          brand === b
+                            ? "border-blue-600 bg-blue-50 text-slate-900"
+                            : "border-slate-200 bg-white text-slate-900",
+                        ].join(" ")}
+                      >
+                        <div className="font-semibold">{b}</div>
+                      </button>
+                    ))}
+
+                    {brand === "Other" && (
+                      <div className="col-span-2">
+                        <label className="text-sm font-semibold text-slate-900">
+                          Enter brand name
+                        </label>
+                        <input
+                          value={brandOther}
+                          onChange={(e) => setBrandOther(e.target.value)}
+                          placeholder="Example: Nothing, Motorola..."
+                          className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 outline-none focus:border-slate-500"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {step === 2 && (
+                  <div className="grid grid-cols-3 gap-3">
+                    {(["Android", "iOS", "Other"] as Platform[]).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setPlatform(p)}
+                        className={[
+                          "rounded-xl border px-4 py-3 text-left",
+                          platform === p
+                            ? "border-blue-600 bg-blue-50 text-slate-900"
+                            : "border-slate-200 bg-white text-slate-900",
+                        ].join(" ")}
+                      >
+                        <div className="font-semibold">{p}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {step === 3 && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {issues.map((i) => (
+                      <button
+                        key={i}
+                        onClick={() => setIssue(i)}
+                        className={[
+                          "rounded-xl border px-4 py-3 text-left",
+                          issue === i
+                            ? "border-blue-600 bg-blue-50 text-slate-900"
+                            : "border-slate-200 bg-white text-slate-900",
+                        ].join(" ")}
+                      >
+                        <div className="font-semibold">{i}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {step === 4 && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="text-sm text-slate-700">
+                      Looking for:
+                    </div>
+                    <div className="mt-1 font-semibold text-slate-900">
+                      {category} • {brandFinal} • {platform} • {issue}
+                    </div>
+                    <div className="mt-3 text-sm text-slate-600">
+                      Redirecting to results…
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer buttons */}
+              <div className="mt-6 flex items-center justify-between gap-3">
+                <button
+                  onClick={back}
+                  disabled={step === 0 || step === 4}
+                  className="rounded-xl border border-slate-300 px-4 py-2 text-slate-900 disabled:opacity-40"
+                >
+                  Back
+                </button>
+
+                {step < 3 && (
+                  <button
+                    onClick={next}
+                    disabled={!canContinue()}
+                    className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white disabled:opacity-50"
+                  >
+                    Continue
+                  </button>
+                )}
+
+                {step === 3 && (
+                  <button
+                    onClick={findMatches}
+                    disabled={!canContinue()}
+                    className="rounded-xl bg-emerald-500 px-4 py-2 font-semibold text-white disabled:opacity-50"
+                  >
+                    Find matches
+                  </button>
+                )}
+
+                {step === 4 && (
+                  <button
+                    onClick={closeWizard}
+                    className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white"
+                  >
+                    Close
+                  </button>
+                )}
+              </div>
+
+              <p className="mt-4 text-xs text-slate-500">
+                Note: Manual postcode/town search is paused because the free public Nominatim geocoder blocked automated requests. [web:171]
+              </p>
+            </div>
           </div>
         </div>
-      </footer>
+      )}
     </main>
   );
 }
