@@ -210,26 +210,27 @@ export default function HomePage() {
         </button>
       </section>
 
-      {/* Scroll content: popular services chips */}
-      <section className="mx-auto max-w-6xl px-4 pb-14">
-        <h3 className="text-2xl font-bold text-slate-900">Popular services</h3>
+     {/* Scroll content: popular services grid */}
+<section className="mx-auto max-w-6xl px-4 pb-14">
+  <h3 className="text-2xl font-bold text-slate-900">Popular services</h3>
 
-        <div className="mt-6 flex flex-wrap gap-3">
-          {popularServices.map((s) => (
-            <button
-              key={s}
-              onClick={() => {
-                openWizard();
-                setIssue(s);
-                setStep(0);
-              }}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-blue-700 hover:bg-slate-50"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </section>
+  <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+    {popularServices.map((s) => (
+      <button
+        key={s}
+        onClick={() => {
+          openWizard();
+          setIssue(s);
+          setStep(0);
+        }}
+        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm text-blue-700 hover:bg-slate-50"
+      >
+        {s}
+      </button>
+    ))}
+  </div>
+</section>
+
 
       {/* Keep your old "Popular issues" too */}
       <section className="mx-auto max-w-6xl px-4 pb-16">
