@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 
-export const dynamic = "force-dynamic";
-
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
@@ -13,15 +12,29 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+// Haversine distance in meters. [web:424]
+function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371e3; // meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 function looksPhoneRelated(name: string) {
   const n = name.toLowerCase();
 
-  // Words/brands that usually mean phone/mobile repair
   const goodWords = [
     "mobile",
     "phone",
     "cell",
-    "smart",
     "iphone",
     "samsung",
     "mi",
@@ -35,7 +48,6 @@ function looksPhoneRelated(name: string) {
     "repair",
   ];
 
-  // Words that clearly mean NOT phone repair
   const badWords = [
     "borewell",
     "pump",
@@ -44,10 +56,9 @@ function looksPhoneRelated(name: string) {
     "fabrication",
     "steel",
     "hardware",
-    "cement",
     "tiles",
     "plywood",
-    "furniture",
+    "cement",
     "car",
     "bike",
     "tyre",
@@ -55,7 +66,6 @@ function looksPhoneRelated(name: string) {
 
   const good = goodWords.some((w) => n.includes(w));
   const bad = badWords.some((w) => n.includes(w));
-
   return good && !bad;
 }
 
@@ -68,23 +78,22 @@ export async function GET(req: NextRequest) {
     return Response.json({ results: [], error: "lat and lng required" }, { status: 400 });
   }
 
-  const lat = Number(latStr);
-  const lng = Number(lngStr);
+  const userLat = Number(latStr);
+  const userLng = Number(lngStr);
   let radius = Number(radiusStr);
 
-  if (Number.isNaN(lat) || Number.isNaN(lng) || Number.isNaN(radius)) {
+  if (Number.isNaN(userLat) || Number.isNaN(userLng) || Number.isNaN(radius)) {
     return Response.json({ results: [], error: "lat/lng/radius must be numbers" }, { status: 400 });
   }
 
   radius = clamp(radius, 500, 12000);
 
-  // Simple Overpass query (stable). [web:246]
-  // craft=electronics_repair is generic, so we'll filter names in JS. [web:276]
+  // Simple, stable Overpass query. [web:164]
   const query = `
 [out:json][timeout:25];
 (
-  nwr(around:${radius},${lat},${lng})["shop"="mobile_phone"];
-  nwr(around:${radius},${lat},${lng})["craft"="electronics_repair"];
+  nwr(around:${radius},${userLat},${userLng})["shop"="mobile_phone"];
+  nwr(around:${radius},${userLat},${userLng})["craft"="electronics_repair"];
 );
 out center;
 `.trim();
@@ -93,12 +102,11 @@ out center;
 
   for (const endpoint of OVERPASS_ENDPOINTS) {
     const r = await fetch(endpoint, {
-  method: "POST",
-  cache: "no-store",
-  headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-  body: new URLSearchParams({ data: query }).toString(),
-});
-
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+      body: new URLSearchParams({ data: query }).toString(),
+    });
 
     const text = await r.text();
     const ct = r.headers.get("content-type") || "";
@@ -130,6 +138,8 @@ out center;
         const tags = el.tags || {};
         const name = tags.name || "Unnamed shop";
 
+        const d = distanceMeters(userLat, userLng, coords.lat, coords.lng);
+
         return {
           placeId: `${el.type}-${el.id}`,
           name,
@@ -137,14 +147,18 @@ out center;
           phone: tags["contact:phone"] || tags.phone || "",
           lat: coords.lat,
           lng: coords.lng,
+          distanceMeters: Math.round(d),
         };
       })
       .filter((x: any) => x.lat && x.lng);
 
-    // Strong filter: only keep phone-related names, and drop "Unnamed shop"
-    const results = all.filter((x: any) => x.name !== "Unnamed shop" && looksPhoneRelated(x.name));
+    // Filter out obvious wrong names + unnamed.
+    const filtered = all.filter((x: any) => x.name !== "Unnamed shop" && looksPhoneRelated(x.name));
 
-    return Response.json({ results });
+    // Sort nearest first.
+    filtered.sort((a: any, b: any) => a.distanceMeters - b.distanceMeters);
+
+    return Response.json({ results: filtered });
   }
 
   return Response.json(

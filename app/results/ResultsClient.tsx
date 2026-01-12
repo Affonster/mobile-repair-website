@@ -10,7 +10,14 @@ type Shop = {
   phone?: string;
   lat: number;
   lng: number;
+  distanceMeters?: number;
 };
+
+function formatDistance(m?: number) {
+  if (typeof m !== "number") return "";
+  if (m < 1000) return `${m} m`;
+  return `${(m / 1000).toFixed(1)} km`;
+}
 
 export default function ResultsClient() {
   const sp = useSearchParams();
@@ -41,7 +48,6 @@ export default function ResultsClient() {
         const r = await fetch(
           `/api/shops?lat=${lat}&lng=${lng}&radius=${radius}&issue=${encodeURIComponent(issue)}`
         );
-
         const data = await r.json();
 
         if (!r.ok) {
@@ -67,10 +73,6 @@ export default function ResultsClient() {
     <main className="mx-auto max-w-5xl px-4 py-8">
       <h2 className="text-2xl font-bold text-slate-900">Repair shops near you</h2>
       <p className="mt-1 text-slate-600">Issue: {issue}</p>
-      <p className="mt-1 text-xs text-slate-500">
-  lat: {lat} | lng: {lng} | radius: {radius}m
-</p>
-
 
       <div className="mt-4 flex gap-3">
         <button
@@ -98,10 +100,25 @@ export default function ResultsClient() {
         <div className="mt-6 grid gap-4">
           {shops.map((s) => (
             <div key={s.placeId} className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="font-semibold text-slate-900">{s.name}</div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="font-semibold text-slate-900">{s.name}</div>
+                  <div className="mt-1 text-sm text-slate-600">
+                    {s.address || "Address not available"}
+                  </div>
+                  <div className="mt-2 text-sm text-slate-700">
+                    Distance: {formatDistance(s.distanceMeters)}
+                  </div>
+                </div>
 
-              <div className="mt-1 text-sm text-slate-600">
-                {s.address || "Address not available"}
+                <a
+                  className="shrink-0 rounded-xl border border-slate-300 px-4 py-2 text-slate-900"
+                  target="_blank"
+                  rel="noreferrer"
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`}
+                >
+                  Directions
+                </a>
               </div>
 
               <div className="mt-3 flex flex-wrap gap-3">
@@ -114,15 +131,6 @@ export default function ResultsClient() {
                     No phone
                   </span>
                 )}
-
-                <a
-                  className="rounded-xl border border-slate-300 px-4 py-2 text-slate-900"
-                  target="_blank"
-                  rel="noreferrer"
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`}
-                >
-                  Directions
-                </a>
               </div>
             </div>
           ))}
