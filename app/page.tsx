@@ -26,14 +26,26 @@ const issues = [
   "Other",
 ];
 
+const popularServices = [
+  "Screen replacement",
+  "Battery replacement",
+  "Charging port repair",
+  "Water damage repair",
+  "Speaker / mic repair",
+  "Camera repair",
+  "Software troubleshooting",
+  "Phone unlocking",
+  "Tablet repair",
+  "Laptop repair",
+];
+
 export default function HomePage() {
   const router = useRouter();
 
   // Modal open/close
   const [open, setOpen] = useState(false);
 
-  // Steps:
-  // 0 category, 1 brand, 2 platform, 3 issue, 4 location, 5 found matches
+  // Steps: 0 category, 1 brand, 2 platform, 3 issue, 4 location, 5 found matches
   const [step, setStep] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
 
   // Answers
@@ -82,7 +94,6 @@ export default function HomePage() {
     if (step === 1) return !!brand && (brand !== "Other" || brandOther.trim().length >= 2);
     if (step === 2) return !!platform;
     if (step === 3) return !!issue;
-    // step 4 is location; no "continue" needed, it has buttons
     return false;
   }
 
@@ -102,10 +113,8 @@ export default function HomePage() {
       (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-
         const query = buildQuery();
 
-        // Show “found matches”
         setStep(5);
 
         setTimeout(() => {
@@ -125,9 +134,7 @@ export default function HomePage() {
       {/* Header */}
       <header className="bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <div className="text-lg font-bold tracking-tight text-slate-900">
-            RepairFinder
-          </div>
+          <div className="text-lg font-bold tracking-tight text-slate-900">RepairFinder</div>
 
           <div className="hidden items-center gap-3 sm:flex">
             <input
@@ -182,9 +189,51 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Some content below */}
+      {/* Scroll content: intro block + CTA */}
       <section className="mx-auto max-w-6xl px-4 py-14">
-        <h2 className="text-4xl font-extrabold text-slate-900">Popular issues</h2>
+        <h2 className="text-4xl font-extrabold text-slate-900">
+          Need help finding a repair professional?
+        </h2>
+        <p className="mt-4 max-w-3xl text-slate-700">
+          Tell us what device you have and what’s wrong with it. We’ll show nearby repair shops so you
+          can compare options and contact the right one.
+        </p>
+        <p className="mt-4 max-w-3xl text-slate-700">
+          Best of all — getting started is free.
+        </p>
+
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="mt-6 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
+        >
+          Find a repair shop today
+        </button>
+      </section>
+
+      {/* Scroll content: popular services chips */}
+      <section className="mx-auto max-w-6xl px-4 pb-14">
+        <h3 className="text-2xl font-bold text-slate-900">Popular services</h3>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          {popularServices.map((s) => (
+            <button
+              key={s}
+              onClick={() => {
+                openWizard();
+                setIssue(s);
+                setStep(0);
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-blue-700 hover:bg-slate-50"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Keep your old "Popular issues" too */}
+      <section className="mx-auto max-w-6xl px-4 pb-16">
+        <h3 className="text-2xl font-bold text-slate-900">Popular issues</h3>
         <div className="mt-6 flex flex-wrap gap-3">
           {issues.map((s) => (
             <button
@@ -201,6 +250,41 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* Footer like screenshot */}
+      <footer className="border-t border-slate-200 bg-white">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-4 py-12 sm:grid-cols-3">
+          <div>
+            <div className="font-semibold text-slate-900">For Customers</div>
+            <ul className="mt-3 space-y-2 text-slate-600">
+              <li>Find a shop</li>
+              <li>How it works</li>
+              <li>Login</li>
+              <li>Mobile App</li>
+            </ul>
+          </div>
+
+          <div>
+            <div className="font-semibold text-slate-900">For Professionals</div>
+            <ul className="mt-3 space-y-2 text-slate-600">
+              <li>How it works</li>
+              <li>Pricing</li>
+              <li>Join as a Professional</li>
+              <li>Help centre</li>
+            </ul>
+          </div>
+
+          <div>
+            <div className="font-semibold text-slate-900">Need help?</div>
+            <button className="mt-3 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white">
+              Contact us
+            </button>
+            <p className="mt-4 text-sm text-slate-500">
+              © {new Date().getFullYear()} RepairFinder. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </footer>
 
       {/* Modal wizard */}
       {open && (
@@ -256,16 +340,7 @@ export default function HomePage() {
                 {step === 1 && (
                   <div className="grid grid-cols-2 gap-3">
                     {(
-                      [
-                        "Apple",
-                        "Samsung",
-                        "OnePlus",
-                        "Xiaomi",
-                        "Oppo",
-                        "Vivo",
-                        "Realme",
-                        "Other",
-                      ] as Brand[]
+                      ["Apple", "Samsung", "OnePlus", "Xiaomi", "Oppo", "Vivo", "Realme", "Other"] as Brand[]
                     ).map((b) => (
                       <button
                         key={b}
@@ -283,9 +358,7 @@ export default function HomePage() {
 
                     {brand === "Other" && (
                       <div className="col-span-2">
-                        <label className="text-sm font-semibold text-slate-900">
-                          Enter brand name
-                        </label>
+                        <label className="text-sm font-semibold text-slate-900">Enter brand name</label>
                         <input
                           value={brandOther}
                           onChange={(e) => setBrandOther(e.target.value)}
@@ -357,15 +430,13 @@ export default function HomePage() {
                         className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-slate-500"
                       />
                       <p className="mt-2 text-xs text-slate-500">
-                        Manual geocoding is paused because the free public Nominatim server blocks automated apps. [web:171]
+                        Manual search is paused for now (geocoding provider needed).
                       </p>
                     </div>
 
                     <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="text-xs text-slate-600">You selected</div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
-                        {buildQuery()}
-                      </div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">{buildQuery()}</div>
                     </div>
                   </div>
                 )}
@@ -408,21 +479,12 @@ export default function HomePage() {
                   </button>
                 )}
 
-                {step === 4 && (
+                {(step === 4 || step === 5) && (
                   <button
                     onClick={closeWizard}
                     className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white"
                   >
-                    Cancel
-                  </button>
-                )}
-
-                {step === 5 && (
-                  <button
-                    onClick={closeWizard}
-                    className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white"
-                  >
-                    Close
+                    {step === 4 ? "Cancel" : "Close"}
                   </button>
                 )}
               </div>
