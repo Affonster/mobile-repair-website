@@ -32,8 +32,9 @@ export default function HomePage() {
   // Modal open/close
   const [open, setOpen] = useState(false);
 
-  // Steps: 0 category, 1 brand, 2 platform, 3 issue, 4 finding matches
-  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4>(0);
+  // Steps:
+  // 0 category, 1 brand, 2 platform, 3 issue, 4 location, 5 found matches
+  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
 
   // Answers
   const [category, setCategory] = useState<Category | null>(null);
@@ -41,6 +42,10 @@ export default function HomePage() {
   const [brandOther, setBrandOther] = useState("");
   const [platform, setPlatform] = useState<Platform | null>(null);
   const [issue, setIssue] = useState<string>("");
+
+  // Location step state
+  const [finding, setFinding] = useState(false);
+  const [manualTown, setManualTown] = useState(""); // UI only, disabled for now
 
   const brandFinal = useMemo(() => {
     if (brand !== "Other") return brand || "";
@@ -54,6 +59,8 @@ export default function HomePage() {
     setBrandOther("");
     setPlatform(null);
     setIssue("");
+    setFinding(false);
+    setManualTown("");
   }
 
   function closeWizard() {
@@ -75,6 +82,7 @@ export default function HomePage() {
     if (step === 1) return !!brand && (brand !== "Other" || brandOther.trim().length >= 2);
     if (step === 2) return !!platform;
     if (step === 3) return !!issue;
+    // step 4 is location; no "continue" needed, it has buttons
     return false;
   }
 
@@ -83,33 +91,30 @@ export default function HomePage() {
     setStep((step + 1) as any);
   }
 
-  // Final submit: use GPS and go to results
-  function findMatches() {
-    setStep(4);
+  function buildQuery() {
+    return [category, brandFinal, platform, issue].filter(Boolean).join(" - ");
+  }
+
+  function useMyLocationAndFindMatches() {
+    setFinding(true);
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
 
-        // Build a useful issue string for searching
-        const query = [
-          category,
-          brandFinal,
-          platform,
-          issue,
-        ]
-          .filter(Boolean)
-          .join(" - ");
+        const query = buildQuery();
 
-        // Small “found matches” delay (looks professional)
+        // Show “found matches”
+        setStep(5);
+
         setTimeout(() => {
           router.push(`/results?lat=${lat}&lng=${lng}&issue=${encodeURIComponent(query)}`);
         }, 900);
       },
       () => {
-        alert("Please allow location permission (GPS) to find shops near you.");
-        setStep(3); // go back to last step so user can try again
+        alert("Please allow location permission to find shops near you.");
+        setFinding(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -159,7 +164,7 @@ export default function HomePage() {
             <div className="mt-8 w-full max-w-lg rounded-2xl bg-white p-6 text-slate-900 shadow-xl">
               <div className="text-sm font-semibold">Answer a few quick questions</div>
               <p className="mt-2 text-sm text-slate-600">
-                This helps find the best matches near your location.
+                One step at a time — then we’ll show nearby matches.
               </p>
 
               <button
@@ -177,7 +182,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Some content below (keep your existing sections if you want) */}
+      {/* Some content below */}
       <section className="mx-auto max-w-6xl px-4 py-14">
         <h2 className="text-4xl font-extrabold text-slate-900">Popular issues</h2>
         <div className="mt-6 flex flex-wrap gap-3">
@@ -200,27 +205,20 @@ export default function HomePage() {
       {/* Modal wizard */}
       {open && (
         <div className="fixed inset-0 z-[60]">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={closeWizard}
-          />
+          <div className="absolute inset-0 bg-black/60" onClick={closeWizard} />
 
-          {/* Modal */}
           <div className="absolute inset-0 flex items-center justify-center p-4">
             <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-              {/* Header */}
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-sm text-slate-500">
-                    Step {step + 1} of 5
-                  </div>
+                  <div className="text-sm text-slate-500">Step {step + 1} of 6</div>
                   <div className="mt-1 text-xl font-bold text-slate-900">
                     {step === 0 && "Is it a mobile or a tablet?"}
                     {step === 1 && "Which brand is it?"}
                     {step === 2 && "Which platform?"}
                     {step === 3 && "What issue are you facing?"}
-                    {step === 4 && "We found your matches"}
+                    {step === 4 && "Where do you need it?"}
+                    {step === 5 && "We found your matches"}
                   </div>
                 </div>
 
@@ -232,7 +230,6 @@ export default function HomePage() {
                 </button>
               </div>
 
-              {/* Body */}
               <div className="mt-5">
                 {step === 0 && (
                   <div className="grid grid-cols-2 gap-3">
@@ -339,25 +336,53 @@ export default function HomePage() {
                 )}
 
                 {step === 4 && (
+                  <div>
+                    <button
+                      disabled={finding}
+                      onClick={useMyLocationAndFindMatches}
+                      className="w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-white hover:bg-emerald-600 disabled:opacity-60"
+                    >
+                      {finding ? "Getting location…" : "Use my current location"}
+                    </button>
+
+                    <div className="mt-4">
+                      <label className="text-sm font-semibold text-slate-900">
+                        Or enter postcode/town (coming soon)
+                      </label>
+                      <input
+                        disabled
+                        value={manualTown}
+                        onChange={(e) => setManualTown(e.target.value)}
+                        placeholder="Manual search is disabled for now"
+                        className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-slate-500"
+                      />
+                      <p className="mt-2 text-xs text-slate-500">
+                        Manual geocoding is paused because the free public Nominatim server blocks automated apps. [web:171]
+                      </p>
+                    </div>
+
+                    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="text-xs text-slate-600">You selected</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {buildQuery()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {step === 5 && (
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="text-sm text-slate-700">
-                      Looking for:
-                    </div>
-                    <div className="mt-1 font-semibold text-slate-900">
-                      {category} • {brandFinal} • {platform} • {issue}
-                    </div>
-                    <div className="mt-3 text-sm text-slate-600">
-                      Redirecting to results…
-                    </div>
+                    <div className="text-sm text-slate-700">Looking for:</div>
+                    <div className="mt-1 font-semibold text-slate-900">{buildQuery()}</div>
+                    <div className="mt-3 text-sm text-slate-600">Redirecting to results…</div>
                   </div>
                 )}
               </div>
 
-              {/* Footer buttons */}
               <div className="mt-6 flex items-center justify-between gap-3">
                 <button
                   onClick={back}
-                  disabled={step === 0 || step === 4}
+                  disabled={step === 0 || step === 5}
                   className="rounded-xl border border-slate-300 px-4 py-2 text-slate-900 disabled:opacity-40"
                 >
                   Back
@@ -375,11 +400,11 @@ export default function HomePage() {
 
                 {step === 3 && (
                   <button
-                    onClick={findMatches}
+                    onClick={() => setStep(4)}
                     disabled={!canContinue()}
                     className="rounded-xl bg-emerald-500 px-4 py-2 font-semibold text-white disabled:opacity-50"
                   >
-                    Find matches
+                    Continue to location
                   </button>
                 )}
 
@@ -388,14 +413,19 @@ export default function HomePage() {
                     onClick={closeWizard}
                     className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white"
                   >
+                    Cancel
+                  </button>
+                )}
+
+                {step === 5 && (
+                  <button
+                    onClick={closeWizard}
+                    className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white"
+                  >
                     Close
                   </button>
                 )}
               </div>
-
-              <p className="mt-4 text-xs text-slate-500">
-                Note: Manual postcode/town search is paused because the free public Nominatim geocoder blocked automated requests. [web:171]
-              </p>
             </div>
           </div>
         </div>
