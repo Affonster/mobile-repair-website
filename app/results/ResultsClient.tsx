@@ -67,6 +67,10 @@ export default function ResultsClient() {
     <main className="mx-auto max-w-5xl px-4 py-8">
       <h2 className="text-2xl font-bold text-slate-900">Repair shops near you</h2>
       <p className="mt-1 text-slate-600">Issue: {issue}</p>
+      <p className="mt-1 text-xs text-slate-500">
+  lat: {lat} | lng: {lng} | radius: {radius}m
+</p>
+
 
       <div className="mt-4 flex gap-3">
         <button

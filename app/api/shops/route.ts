@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export const runtime = "nodejs";
 
 const OVERPASS_ENDPOINTS = [
@@ -91,10 +93,12 @@ out center;
 
   for (const endpoint of OVERPASS_ENDPOINTS) {
     const r = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-      body: new URLSearchParams({ data: query }).toString(),
-    });
+  method: "POST",
+  cache: "no-store",
+  headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+  body: new URLSearchParams({ data: query }).toString(),
+});
+
 
     const text = await r.text();
     const ct = r.headers.get("content-type") || "";
