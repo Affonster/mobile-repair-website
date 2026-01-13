@@ -86,7 +86,9 @@ export default function ResultsClient() {
           consentFollowUp: true,
         }),
       });
-      const data = await r.json();
+      const raw = await r.text();
+      const data = raw ? JSON.parse(raw) : null;
+
       if (r.ok && data?.leadId) setLeadId(data.leadId);
     } finally {
       setSavingLead(false);
