@@ -280,6 +280,16 @@ export default function HomePage() {
             <button className="mt-3 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white">
               Contact us
             </button>
+
+            <div className="mt-4">
+            <a
+              href="/admin-login"
+              className="text-sm text-slate-500 hover:text-slate-900"
+            >
+              Admin
+            </a>
+          </div>
+
             <p className="mt-4 text-sm text-slate-500">
               © {new Date().getFullYear()} RepairFinder. All rights reserved.
             </p>
@@ -488,6 +498,7 @@ export default function HomePage() {
                     {step === 4 ? "Cancel" : "Close"}
                   </button>
                 )}
+
               </div>
             </div>
           </div>
